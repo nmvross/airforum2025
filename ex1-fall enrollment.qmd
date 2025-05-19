@@ -1,0 +1,185 @@
+---
+format:
+  pdf: 
+    pdf-engine: lualatex
+    include-in-header: 
+      text: '\pagenumbering{gobble}'
+    echo: false
+    warning: false
+    message: false
+    tbl-colwidths: auto
+    fig-width: 8
+    geometry:
+      - top=0.75in
+      - right=0.75in
+      - bottom=1in
+      - left=0.75in
+      - heightrounded
+    mainfont: "calibri"
+    sansfont: "calibri"
+chunk_output_type: console
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+#| label: setup
+
+# Load necessary libraries
+library(dplyr)
+library(tidyverse)
+library(tidyr)
+library(ggplot2)
+library(flextable)
+library(knitr)
+# Note, if you are making a PDF, you need to install the tinytex package as well
+```
+
+```{r}
+#| label: additional_formatting
+
+# Note, this is optional and is just additional formatting we select for aesthetics
+
+# Add calibri font 
+library(showtext)
+font_add(family = "calibri", regular = "calibri.ttf", bold = "calibrib.ttf",
+         italic = "calibrii.ttf")
+
+showtext_auto()
+
+# Figures have minminal theming
+theme_set(theme_minimal())
+
+```
+
+```{r}
+#| label: load-data
+
+# Create manual dataset to trial, but this is where you could import from Excel, connect to Oracle, etc.
+
+# Read enrollment data (in reality, this would be your actual data)
+fall_enrollment <- data.frame(
+  College = c("Agricultural Sciences", "Business", "Health and Human Sciences", "Intra-University", "Liberal Arts", "Natural Sciences", "Veterinary Medicine & Biomedical Sci", "Walter Scott Jr College of Engr", "Warner College of Natural Resources"),
+  Term = c(2024, 2024, 2024, 2024, 2024, 2024, 2024, 2024, 2024),
+  Female = c(1185, 1211, 2416, 744, 2342, 2843, 748, 694, 889),
+  Male = c(396, 1877, 1355, 1102, 1468, 1910, 218, 1855, 702),
+  Resident = c(830, 2120, 2621, 1274, 2659, 3157, 670, 1675, 830),
+  WUE = c(200, 358, 371, 108, 300, 435, 93, 235, 169),
+  NonWUE = c(551, 610, 779, 464, 851, 1161, 203, 639, 592),
+  Total = c(1581, 3088, 3771, 1846, 3810, 4753, 966, 2549, 1591)
+)
+
+# Specify most recent term for most recent report
+term <- as.numeric(max(fall_enrollment$Term))
+```
+
+## Fall `r term` Undergraduate Enrollment by College and Gender[^1]
+
+[^1]: Data reflect counts as of the Census date of the fall term.
+
+### Number of Students by Primary Major
+
+```{r}
+#| label: fall_enrollment_table-gender
+
+# Create a nicely formatted table with flextable
+fall_enrollment %>%
+  select(College, Female, Male, Total) %>%
+  bind_rows(
+    summarize(fall_enrollment,
+      College = "Total",
+      Female = sum(Female),
+      Male = sum(Male),
+      Total = sum(Total)
+    )
+  ) %>%
+  flextable() %>%
+  border_remove() %>%
+  # Add footer lines
+  add_footer_lines("Source: Office of Institutional Research") %>%
+  # Format the header to be more prominent
+  bold(bold = TRUE, part = "header") %>%
+  # Format numbers to include commas
+  colformat_num(j = c("Female", "Male", "Total"), big.mark = ",", digits = 0) %>%
+  # Add a horizontal line before the total row
+  hline(i = nrow(fall_enrollment)) %>%
+  # Make it look nicer
+  theme_booktabs() %>%
+  # Align columns (text left, numbers right)
+  align(j = 1, align = "left", part = "all") %>%
+  align(j = 2:4, align = "right", part = "all") %>%
+  # Change font for the entire table
+  font(fontname = "calibri", part = "all") %>%
+  # Set font size for different parts of the table
+  fontsize(size = 10, part = "body") %>%
+  fontsize(size = 10, part = "header") %>%
+  fontsize(size = 9, part = "footer") %>%
+  # Automatically adjust column widths
+  autofit() %>%
+  # Add header lines
+  # add_header_lines(values = c("Fall 2024")) %>%
+  # Bold the total row
+  bold(i = 10)
+```
+
+### Percent of Students
+
+```{r}
+#| label: fall_enrollment_figure-gender
+
+# Load additional pacakages from library
+library(forcats)
+
+# Calculate percentages
+fall_enrollment <- fall_enrollment %>%
+  mutate(
+    Female_Percent = round(Female / Total * 100),
+    Male_Percent = round(Male / Total * 100)
+  )
+
+# Convert to long format for plotting
+plot_data <- fall_enrollment %>%
+  select(College, Female_Percent, Male_Percent) %>%
+  pivot_longer(
+    cols = c(Female_Percent, Male_Percent),
+    names_to = "Gender",
+    values_to = "Percentage"
+  ) %>%
+  mutate(Gender = ifelse(Gender == "Female_Percent", "Female", "Male"))
+
+# Make stacked bar chart figure with plot_data
+fig <- plot_data %>%
+    ggplot(aes(
+      fill = forcats::fct_rev(Gender),
+      x = forcats::fct_rev(College),
+      y = Percentage
+    )) +
+    geom_bar(position = "fill", stat = "identity") +
+    coord_flip() +
+    scale_fill_manual(values = c("Female" = "#1b543f", "Male" = "#cdbe70")) +
+  # Label the bar percentages
+    geom_text(
+        aes(label = paste0(Percentage, "%")),
+        color = "white",
+        fontface = "bold",
+        position = position_fill(vjust = 0.5),
+        size = 3.5
+      ) +
+    guides(fill = guide_legend(reverse = TRUE)) +
+  # This represents additional formatting choices
+    theme(
+      axis.title = element_blank(),
+      axis.text.x = element_blank(),
+      axis.text.y = element_text(face = "bold", size = 10, family = "calibri"),
+      legend.position = "bottom",
+      legend.title = element_blank(),
+      legend.text = element_text(size = 9, family = "calibri"),
+      panel.grid = element_blank(),
+      plot.margin = unit(c(0,0,0,1), "cm")
+    ) 
+
+# Call the figure to appear 
+fig
+```
+
+{{< pagebreak >}}
