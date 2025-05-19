@@ -1,0 +1,523 @@
+---
+title: "Quarto Starter Kit for IR Professionals"
+author: "Colorado State University Office of IRPE"
+date: today
+format:
+  pdf:
+    toc: true
+    toc_depth: 3
+    number-sections: true
+    include-before-body: before-body.md
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: show
+    code-tools: true
+    theme: cosmo
+  docx:
+    toc: true
+    highlight-style: github
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+# Introduction to Quarto
+
+This document serves as both a demonstration of Quarto's capabilities and a reference guide for Institutional Research professionals. You can use the rendered document as a guide, and also examine the source code to see how each feature is implemented.
+
+## What is Quarto?
+
+Quarto is an open-source scientific and technical publishing system built on Pandoc. It allows you to create dynamic documents that can include:
+
+- Formatted text with Markdown
+- Executable code (R, Python, Julia)
+- Interactive visualizations
+- Mathematical equations
+- Citations and references
+
+Best of all, from a single source file (like this one), you can produce documents in multiple formats: HTML, PDF, Word, PowerPoint, and more.
+
+```{r}
+#| label: setup
+#| include: false
+
+# Load essential libraries
+library(tidyverse)
+library(knitr)
+library(flextable)
+
+# Set default options
+knitr::opts_chunk$set(
+  fig.width = 7,
+  fig.height = 5,
+  fig.align = "center"
+)
+```
+
+# Getting Started with Quarto
+
+## Installation Instructions
+
+To use Quarto, you'll need to install:
+
+1. R from [CRAN](https://cran.r-project.org/)
+2. RStudio from [Posit](https://posit.co/download/rstudio-desktop/)
+3. Quarto from [Quarto.org](https://quarto.org/docs/get-started/)
+
+Newer versions of RStudio (2022.07 or later) include Quarto by default.
+
+## Essential R Packages
+
+These packages are commonly used in IR reporting workflows:
+
+```{r}
+#| label: package-list
+#| eval: false
+
+# Basic packages for data handling and visualization
+install.packages(c(
+  "tidyverse",    # Data manipulation and visualization
+  "knitr",        # Dynamic report generation
+  "rmarkdown",    # Markdown processing
+  "flextable"     # Word-friendly tables
+))
+
+# You only need to install packages once on your computer
+```
+
+Remember: You only need to install packages once, but you need to load them with `library()` in each document.
+
+```{r}
+#| label: library-example
+#| eval: false
+
+library(tidyverse)
+library(knitr)
+library(rmarkdown)
+library(flextable)
+```
+
+# Basic Document Features
+
+## Text Formatting with Markdown
+
+Quarto uses Markdown for text formatting:
+
+- **Bold text** with `**bold**`
+- *Italic text* with `*italic*`
+- Lists with `-` or `1.`
+- [Links](https://quarto.org) with `[text](url)`
+- Headers with `#`, `##`, etc.
+
+## Code Chunks and Output
+
+This is a code chunk that runs R code and displays its output:
+
+```{r}
+#| label: simple-calculation
+
+# Calculating summary statistics for a sample dataset
+numbers <- c(15, 23, 42, 56, 89, 12)
+
+# Summary statistics
+mean_value <- mean(numbers)
+median_value <- median(numbers)
+std_dev <- sd(numbers)
+
+# Create a table of results
+data.frame(
+  Statistic = c("Mean", "Median", "Standard Deviation"),
+  Value = c(mean_value, median_value, std_dev)
+)
+```
+
+## Basic Charts
+
+Creating visualizations is straightforward. Here's a simple bar chart:
+
+```{r}
+#| label: simple-chart
+#| fig-cap: "Sample enrollment data by college"
+
+# Create sample data
+enrollment <- data.frame(
+  College = c("Arts & Sciences", "Business", "Engineering", "Education", "Health Sciences"),
+  Students = c(5234, 3211, 2543, 1432, 2211)
+)
+
+# Create a bar chart
+ggplot(enrollment, aes(x = reorder(College, -Students), y = Students)) +
+  geom_col(fill = "steelblue") +
+  theme_minimal() +
+  labs(
+    title = "Enrollment by College",
+    x = "College",
+    y = "Number of Students"
+  ) +
+  # Add data labels on top of bars
+  geom_text(aes(label = Students), vjust = -0.5) +
+  # Rotate x-axis labels for better readability
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## Tables
+
+You can create nicely formatted tables for different output formats:
+
+```{r}
+#| label: simple-table
+
+# Create sample retention data
+retention <- data.frame(
+  College = c("Arts & Sciences", "Business", "Engineering", "Education", "Health Sciences"),
+  "First Spring" = c(0.82, 0.85, 0.88, 0.79, 0.84),
+  "Second Fall" = c(0.76, 0.78, 0.82, 0.72, 0.77),
+  "Third Fall" = c(0.71, 0.74, 0.79, 0.68, 0.72)
+)
+
+# For HTML and PDF output, kable works well
+kable(retention, digits = 2, caption = "Retention Rates by College")
+```
+
+For Word output, the flextable package provides better control:
+
+```{r}
+#| label: flextable-example
+
+flextable(retention) %>%
+  colformat_double(j = 2:4, digits = 2) %>%
+  autofit() %>%
+  add_footer_lines("Source: Office of Institutional Research") %>%
+  theme_vanilla()
+```
+
+# Creating Parameterized Reports
+
+## Setting Up Parameters
+
+Parameters allow you to create one template that generates many different outputs. Parameters are defined in the YAML header:
+
+```yaml
+---
+title: "College of {$college} Fact Sheet"
+params:
+  college: "Arts & Sciences"
+  academic_year: 2024
+---
+```
+
+## Using Parameters in Your Document
+
+You can refer to parameters in both text and code:
+
+```{r}
+#| label: param-demo
+#| echo: true
+
+# Define sample parameters (in a real parameterized document, these would come from the YAML header)
+params <- list(
+  college = "Engineering",
+  academic_year = 2024
+)
+
+# Display parameter value in text using inline R code
+cat(paste("This report shows data for the", params$college, "college in the", params$academic_year, "academic year."))
+
+# Use parameters in data filtering
+colleges <- data.frame(
+  College = c("Arts & Sciences", "Business", "Engineering", "Education", "Health Sciences"),
+  Students = c(5234, 3211, 2543, 1432, 2211),
+  Year = rep(2024, 5)
+)
+
+# Filter data based on parameter
+filtered_data <- colleges %>%
+  filter(College == params$college, Year == params$academic_year)
+
+# Show the filtered data
+filtered_data
+```
+
+## Rendering with Parameters
+
+In RStudio, you can render with parameters by:
+
+1. Clicking the ▼ next to the "Render" button
+2. Choosing "Render with Parameters..."
+3. Entering your parameter values
+4. Clicking "Render"
+
+For batch rendering, you can use an R script:
+
+```{r}
+#| eval: false
+
+library(quarto)
+
+# List colleges to generate reports for
+colleges <- c("Arts & Sciences", "Business", "Engineering")
+
+# Create a report for each college
+for(college in colleges) {
+  quarto::quarto_render(
+    "college_report.qmd",  # Your template file
+    output_file = paste0(college, "_Report.pdf"),
+    execute_params = list(
+      college = college,
+      academic_year = 2024
+    )
+  )
+}
+```
+
+# Example: Enrollment Report
+
+Let's create a more complete example combining several features:
+
+```{r}
+#| label: dashboard-data
+
+# Create sample enrollment trend data
+set.seed(42)
+years <- 2020:2024
+colleges <- c("Arts & Sciences", "Business", "Engineering", "Education", "Health Sciences")
+
+# Expand grid to create all combinations
+trend_data <- expand.grid(
+  Year = years,
+  College = colleges
+)
+
+# Generate reasonably realistic enrollment numbers with some trends
+base_enrollments <- c(6000, 3500, 2800, 1800, 2700)
+names(base_enrollments) <- colleges
+
+# Create enrollment with modest growth for each college
+trend_data$Enrollment <- sapply(1:nrow(trend_data), function(i) {
+  college <- as.character(trend_data$College[i])
+  year_index <- which(years == trend_data$Year[i])
+  
+  # Base value plus growth and random noise
+  base <- base_enrollments[college]
+  growth <- base * 0.02 * (year_index - 1)  # 2% growth per year
+  noise <- rnorm(1, 0, base * 0.01)  # Small random component
+  
+  # Special case: make Education decline slightly
+  if (college == "Education") {
+    growth <- -growth * 0.5
+  }
+  
+  return(round(base + growth + noise))
+})
+```
+
+## Enrollment Trends Visualization
+
+```{r}
+#| label: dashboard-viz
+#| fig-width: 9
+#| fig-height: 6
+#| fig-cap: "Five-Year Enrollment Trends by College"
+
+# Create the line chart
+ggplot(trend_data, aes(x = Year, y = Enrollment, color = College, group = College)) +
+  geom_line(size = 1.2) +
+  geom_point(size = 3) +
+  scale_y_continuous(labels = scales::comma) +
+  scale_x_continuous(breaks = years) +
+  theme_minimal() +
+  labs(
+    title = "Enrollment Trends by College (2020-2024)",
+    y = "Total Enrollment",
+    x = "Academic Year"
+  ) +
+  # Add data labels for 2024
+  geom_text(
+    data = trend_data %>% filter(Year == 2024),
+    aes(label = Enrollment),
+    nudge_x = 0.2,
+    size = 3.5
+  ) +
+  theme(
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+```
+
+## Enrollment Summary Table with Calculations
+
+```{r}
+#| label: dashboard-table
+
+# Calculate summary statistics
+summary_stats <- trend_data %>%
+  group_by(College) %>%
+  summarize(
+    `2024 Enrollment` = Enrollment[Year == 2024],
+    `2020 Enrollment` = Enrollment[Year == 2020],
+    `Change` = `2024 Enrollment` - `2020 Enrollment`,
+    `Percent Change` = ((`2024 Enrollment` - `2020 Enrollment`) / `2020 Enrollment`) *100
+  ) %>%
+  arrange(desc(`2024 Enrollment`))
+
+# Create a nicely formatted table
+flextable(summary_stats) %>%
+  colformat_double(j = 5, digits = 1) %>%
+  bg(j = 4, bg = function(x) {
+    ifelse(x > 0, "#e6f3e6", ifelse(x < 0, "#f7e6e6", "white"))
+  }) %>%
+  bg(j = 5, bg = function(x) {
+    ifelse(x > 0, "#e6f3e6", ifelse(x < 0, "#f7e6e6", "white"))
+  }) %>%
+  bold(j = 1) %>%
+  add_footer_lines("Source: Office of Institutional Research") %>%
+  autofit()
+```
+
+# Automation Techniques
+
+## File Organization
+
+For efficient reporting workflows, organize your files in a clear structure:
+
+```
+InstitutionalResearch/
+  ├── Templates/
+  │   ├── college_factsheet.qmd
+  │   ├── enrollment_report.qmd
+  │   └── generate_reports.R
+  │
+  └── Reports/
+      ├── 2024_Spring/
+      │   ├── enrollment_summary.pdf
+      │   └── college_factsheets/
+      └── 2024_Fall/
+```
+
+## Automation Script
+
+Here's a simple script for automatically generating multiple reports:
+
+```{r}
+#| eval: false
+
+# Simple script to generate multiple reports
+library(quarto)
+
+# List the colleges you want to create reports for
+colleges <- c("Arts & Sciences", "Business", "Engineering")
+academic_year <- 2024
+
+# Create a folder for all the reports
+output_folder <- paste0("Factbook_", academic_year)
+dir.create(output_folder, showWarnings = FALSE)
+
+# First, create the main enrollment report
+print("Creating main enrollment report...")
+quarto::quarto_render(
+  "enrollment_report.qmd",
+  output_file = paste0(output_folder, "/main_enrollment_report.pdf")
+)
+
+# Then create a report for each college
+for (college in colleges) {
+  # Show progress in the console
+  print(paste("Creating fact sheet for", college))
+  
+  # Make a simple filename
+  clean_name <- gsub(" |&", "_", tolower(college))
+  filename <- paste0(output_folder, "/", clean_name, "_factsheet.pdf")
+  
+  # Create the report with parameters
+  quarto::quarto_render(
+    "college_fact_sheet.qmd",
+    output_file = filename,
+    execute_params = list(
+      college = college,
+      academic_year = academic_year
+    )
+  )
+}
+
+print("✓ All reports created successfully!")
+```
+
+## Scheduling (Windows)
+
+For Windows users, you can schedule your automation script using Task Scheduler:
+
+1. Create a `.bat` file with the following content:
+```
+"C:\Program Files\R\R-4.2.1\bin\Rscript.exe" "C:\path\to\your\generate_reports.R"
+```
+
+2. Schedule this using Windows Task Scheduler to run monthly or as needed
+
+# Troubleshooting Tips
+
+## Common Issues and Solutions
+
+Here are solutions to common problems:
+
+### PDF Output Problems
+
+If you encounter errors with PDF rendering:
+
+```{r}
+#| eval: false
+
+# Install TinyTeX (a lightweight LaTeX system)
+install.packages("tinytex")
+tinytex::install_tinytex()
+```
+
+### Table Formatting in Word
+
+For better-looking tables in Word documents, use flextable instead of kable:
+
+```{r}
+#| eval: false
+
+library(flextable)
+flextable(your_data) %>% autofit()
+```
+
+### Data Loading Errors
+
+Always check file paths and preview your data:
+
+```{r}
+#| eval: false
+
+# Print working directory to check where R is looking for files
+print(getwd())
+
+# Preview first few rows of CSV to check structure
+head(read.csv("your_file.csv"))
+```
+
+# Resources for Learning More
+
+## Beginner-Friendly Resources
+
+- [Posit's "Getting Started with Quarto"](https://quarto.org/docs/get-started/)
+- [R for the Rest of Us](https://rfortherestofus.com/)
+- [Introduction to R for Excel Users](https://rstudio-conf-2022.github.io/excel-to-r/)
+
+## Video Tutorials
+
+- [RStudio YouTube Channel](https://www.youtube.com/c/RStudioPBC/videos)
+- [How to Create Your First Quarto Document](https://www.youtube.com/watch?v=_f3latmOhew)
+
+## Getting Help
+
+- [Posit Community Forum](https://community.rstudio.com/)
+- [Stack Overflow with 'quarto' tag](https://stackoverflow.com/questions/tagged/quarto)
+
+# Thank You!
+
+- Nicole Ross, Associated Director, nmvross@colostate.edu
+- Lee Tyson Senior Research Analyst, lktyson@colostate.edu
